@@ -85,6 +85,19 @@ Options:
 - `--limit INTEGER`: Number of messages to display (default: 100)
 - `--skip INTEGER`: Number of messages to skip (default: 0)
 
+### 🧹 Cleanup
+
+To clean up stored messages and media files:
+
+```bash
+python -m src.cli cleanup
+```
+
+Options:
+
+- `--database-only`: Clean up only the database records
+- `--media-only`: Clean up only the downloaded media files
+
 ## 🛡️ Rate Limits and Error Handling
 
 The application implements robust error handling for various Telegram API restrictions:

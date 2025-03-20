@@ -3,6 +3,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.prompt import Confirm
 from loguru import logger
 import sys
 
@@ -90,5 +91,38 @@ def list(
         raise typer.Exit(1)
 
 
+@app.command()
+def cleanup(
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt")
+):
+    """Clear all data (messages and media files)."""
+    try:
+        if not force and not Confirm.ask("[bold red]This will delete all messages and media files. Are you sure?[/bold red]"):
+            console.print("[yellow]Operation cancelled[/yellow]")
+            return
+
+        db = next(get_db())
+        from .cleanup import CleanupService
+        cleanup_service = CleanupService(db)
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True
+        ) as progress:
+            progress.add_task("Cleaning up...", total=None)
+            success = cleanup_service.cleanup_all()
+        
+        if success:
+            console.print("[bold green]Successfully cleared all data![/bold green]")
+        else:
+            console.print("[bold red]Some errors occurred during cleanup[/bold red]")
+            raise typer.Exit(1)
+            
+    except Exception as e:
+        console.print(f"[bold red]Error: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
-    app() 
+    app()
