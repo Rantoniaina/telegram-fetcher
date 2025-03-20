@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    volumes:
+      - ./data:/app/data # Mount the data directory for SQLite database
+      - ./:/app # Mount the application code
+    environment:
+      - SQLITE_DATABASE=/app/data/database.sqlite
+    ports:
+      - "8000:8000" # Adjust this port according to your application needs
+    restart: unless-stopped
+    command: ["python", "app.py"]
+
+volumes:
+  data:
+    driver: local
