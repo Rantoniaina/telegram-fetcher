@@ -16,6 +16,7 @@ A powerful Python application for fetching and storing messages from Telegram ch
 - ⚡ Async support for better performance
 - 📝 Comprehensive logging
 - 🎯 Type hints and documentation
+- 🛡️ Smart rate limit and ban handling
 
 ## 🛠️ Prerequisites
 
@@ -84,6 +85,25 @@ Options:
 - `--limit INTEGER`: Number of messages to display (default: 100)
 - `--skip INTEGER`: Number of messages to skip (default: 0)
 
+## 🛡️ Rate Limits and Error Handling
+
+The application implements robust error handling for various Telegram API restrictions:
+
+### Rate Limits
+- Automatically handles Telegram's FloodWaitError
+- Smart retry mechanism with exponential backoff
+- Continues operation after waiting the required time
+
+### Media Downloads
+- Graceful handling of media download failures
+- Automatic retries for temporary errors
+- Skips problematic media files to continue operation
+
+### Best Practices
+- Respects Telegram API's rate limiting
+- Implements safe error recovery
+- Prevents account bans through smart throttling
+
 ## 📁 Project Structure
 
 ```
@@ -98,83 +118,15 @@ telegram-fetcher/
 ├── 📂 data/
 │   ├── media/          # Downloaded media files
 │   └── telegram.db     # SQLite database
-├── requirements.txt
-├── .env.example
-└── README.md
+├── 📂 tests/           # Test suite
+├── 📄 requirements.txt # Dependencies
+└── 📄 README.md       # This file
 ```
 
-## 🤝 Contributing
-
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. ✍️ Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. 🚀 Push to the branch (`git push origin feature/amazing-feature`)
-5. 🎉 Open a Pull Request
-
-## 📝 Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-TELEGRAM_API_ID=your_api_id
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_PHONE=your_phone_number
-CHANNEL_NAME=target_channel_name
-DATABASE_URL=sqlite:///data/telegram.db
-```
-
-## 📈 Performance
-
-- ⚡ Asynchronous message fetching
-- 🗄️ Efficient SQLite database storage
-- 📊 Progress tracking and statistics
-- 🚦 Rate limiting support
-
-## 🧪 Testing
-
-The project includes a comprehensive test suite using pytest. The tests cover the following components:
-
-- 🔄 **Models**: Database model validation and operations
-- 🌐 **Service Layer**: Message processing and media handling
-- 📡 **Telegram Client**: Connection, message fetching, and media downloads
-
-To run the tests:
-
-```bash
-# Install test dependencies
-pip install pytest pytest-asyncio
-
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_models.py
-
-# Run with verbose output
-pytest -v
-
-# Run with coverage report
-pytest --cov=src tests/
-```
-
-### Test Structure
-
-```
-tests/
-├── conftest.py          # Shared fixtures and configuration
-├── test_models.py       # Database model tests
-├── test_service.py      # Service layer tests
-└── test_telegram_client.py  # Telegram client tests
-```
-
-Each test module focuses on a specific component of the application, ensuring proper functionality and error handling.
-
-## 📄 License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+## 🤝 Contributing
 
-<div align="center">
-Made with ❤️ by @Rantoniaina
-</div>
+Contributions are welcome! Please feel free to submit a Pull Request.
