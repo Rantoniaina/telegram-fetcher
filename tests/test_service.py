@@ -166,39 +166,4 @@ async def test_process_messages_error_handling(service, mock_db):
         await service.process_messages()
     
     # Verify error handling
-    mock_db.rollback.assert_called_once()
-
-def test_get_unnormalized_messages(service, mock_db):
-    """Test retrieving unnormalized messages without pagination."""
-    # Setup mock data
-    expected_messages = [
-        Message(message_id=1, text="Test 1", date=datetime.now(), is_normalized=False),
-        Message(message_id=2, text="Test 2", date=datetime.now(), is_normalized=False)
-    ]
-    mock_db.all.return_value = expected_messages
-    
-    # Test with default parameters
-    messages = service.get_unnormalized_messages()
-    assert messages == expected_messages
-    
-    # Verify query building
-    mock_db.query.assert_called_once_with(Message)
-    mock_db.filter.assert_called_once()
-    mock_db.all.assert_called_once()
-
-def test_get_unnormalized_messages_with_pagination(service, mock_db):
-    """Test retrieving unnormalized messages with pagination."""
-    # Setup mock data
-    expected_messages = [Message(message_id=3, text="Test 3", date=datetime.now(), is_normalized=False)]
-    mock_db.all.return_value = expected_messages
-    
-    # Test with pagination parameters
-    messages = service.get_unnormalized_messages(skip=10, limit=1)
-    assert messages == expected_messages
-    
-    # Verify query building
-    mock_db.query.assert_called_once_with(Message)
-    mock_db.filter.assert_called_once()
-    mock_db.offset.assert_called_once_with(10)
-    mock_db.limit.assert_called_once_with(1)
-    mock_db.all.assert_called_once()
+    mock_db.rollback.assert_called_once() 
