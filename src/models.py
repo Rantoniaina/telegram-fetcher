@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, create_engine
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -19,6 +19,7 @@ class Message(Base):
     text = Column(String)
     media_path = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_normalized = Column(Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<Message(id={self.id}, message_id={self.message_id})>"
@@ -38,4 +39,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()
