@@ -1,8 +1,10 @@
 from telethon.sync import TelegramClient
 from telethon.tl.types import Message as TelegramMessage
+from telethon.errors import FloodWaitError
 from pathlib import Path
 from loguru import logger
 from typing import Optional, Generator, AsyncGenerator
+import asyncio
 
 from .config import settings
 
@@ -42,7 +44,15 @@ class TelegramFetcher:
             
             messages = await self.client.get_messages(channel, limit=fetch_limit)
             for msg in messages:
-                yield msg
+                try:
+                    # Add a small delay between messages to avoid rate limits
+                    await asyncio.sleep(1)
+                    yield msg
+                except FloodWaitError as e:
+                    logger.warning(f"Rate limit hit! Sleeping for {e.seconds} seconds")
+                    await asyncio.sleep(e.seconds)
+                    # Retry after waiting
+                    yield msg
                 
         except Exception as e:
             logger.error(f"Error fetching messages: {e}")
@@ -59,4 +69,4 @@ class TelegramFetcher:
             return Path(downloaded_path) if downloaded_path else None
         except Exception as e:
             logger.error(f"Error downloading media for message {message.id}: {e}")
-            return None 
+            return None
