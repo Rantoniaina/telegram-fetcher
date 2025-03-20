@@ -2,7 +2,7 @@ from telethon.sync import TelegramClient
 from telethon.tl.types import Message as TelegramMessage
 from pathlib import Path
 from loguru import logger
-from typing import Optional, Generator
+from typing import Optional, Generator, AsyncGenerator
 
 from .config import settings
 
@@ -24,12 +24,26 @@ class TelegramFetcher:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.disconnect()
 
-    async def fetch_messages(self, limit: Optional[int] = None) -> Generator[TelegramMessage, None, None]:
+    async def fetch_messages(self, limit: Optional[int] = None) -> AsyncGenerator[TelegramMessage, None]:
         """Fetch messages from the configured channel."""
         try:
-            messages = await self.client.get_messages(settings.CHANNEL_NAME, limit=limit)
+            logger.info(f"Connecting to channel: {settings.CHANNEL_NAME}")
+            channel = await self.client.get_entity(settings.CHANNEL_NAME)
+            logger.info(f"Successfully connected to channel: {channel.title}")
+            
+            # Get total message count first
+            messages = await self.client.get_messages(channel, limit=0)
+            total_messages = messages.total
+            logger.info(f"Found {total_messages} messages in total")
+            
+            # Now fetch the actual messages
+            fetch_limit = limit if limit else total_messages
+            logger.info(f"Will fetch {fetch_limit} messages")
+            
+            messages = await self.client.get_messages(channel, limit=fetch_limit)
             for msg in messages:
                 yield msg
+                
         except Exception as e:
             logger.error(f"Error fetching messages: {e}")
             raise

@@ -2,6 +2,7 @@ import asyncio
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from loguru import logger
 import sys
 
@@ -18,7 +19,11 @@ logger.add(sys.stderr, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <leve
 
 
 @app.command()
-def fetch(limit: int = typer.Option(None, help="Limit the number of messages to fetch")):
+def fetch(
+    limit: int = typer.Option(None, help="Limit the number of messages to fetch"),
+    no_media: bool = typer.Option(False, help="Skip downloading media files"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed progress for each message")
+):
     """Fetch messages from the Telegram channel."""
     try:
         init_db()
@@ -26,7 +31,26 @@ def fetch(limit: int = typer.Option(None, help="Limit the number of messages to 
         service = MessageService(db)
         
         console.print("[bold green]Starting message fetch...[/bold green]")
-        asyncio.run(service.process_messages(limit))
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            disable=not verbose
+        ) as progress:
+            task = progress.add_task("Initializing...", total=None)
+            asyncio.run(service.process_messages(
+                limit=limit,
+                download_media=not no_media,
+                progress_callback=lambda msg, current, total: progress.update(
+                    task,
+                    completed=current,
+                    total=total,
+                    description=f"Message {current}/{total}: {msg.text[:30] + '...' if msg.text else 'No text'}"
+                ) if verbose else None
+            ))
+            
         console.print("[bold green]Message fetch completed![/bold green]")
         
     except Exception as e:
