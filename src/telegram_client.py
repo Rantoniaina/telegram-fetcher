@@ -59,14 +59,29 @@ class TelegramFetcher:
             raise
 
     async def download_media(self, message: TelegramMessage) -> Optional[Path]:
-        """Download media from a message if it exists."""
+        """Download media from a message if it exists with rate limiting."""
         if not message.media:
             return None
 
         try:
+            # Add delay between downloads to avoid rate limits
+            await asyncio.sleep(2)
+            
             file_path = self.media_path / str(message.id)
             downloaded_path = await message.download_media(file=file_path)
-            return Path(downloaded_path) if downloaded_path else None
+            
+            if downloaded_path:
+                logger.info(f"Successfully downloaded media for message {message.id}")
+                return Path(downloaded_path)
+            else:
+                logger.warning(f"No media downloaded for message {message.id}")
+                return None
+                
+        except FloodWaitError as e:
+            logger.warning(f"Rate limit hit while downloading media! Sleeping for {e.seconds} seconds")
+            await asyncio.sleep(e.seconds)
+            # Retry download after waiting
+            return await self.download_media(message)
         except Exception as e:
             logger.error(f"Error downloading media for message {message.id}: {e}")
             return None
