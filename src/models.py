@@ -1,7 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, create_engine, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker
 
 from .config import settings
 
@@ -19,26 +19,9 @@ class Message(Base):
     text = Column(String)
     media_path = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
-    is_normalized = Column(Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<Message(id={self.id}, message_id={self.message_id})>"
-
-
-class NormalizedMessage(Base):
-    __tablename__ = "normalized_messages"
-
-    id = Column(Integer, primary_key=True)
-    original_message_id = Column(Integer, ForeignKey('messages.id'), nullable=False)
-    normalized_text = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationship to original message
-    original_message = relationship("Message", backref="normalized_version")
-
-    def __repr__(self):
-        return f"<NormalizedMessage(id={self.id}, original_message_id={self.original_message_id})>"
 
 
 # Database setup
@@ -55,4 +38,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+        db.close() 

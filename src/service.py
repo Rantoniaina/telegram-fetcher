@@ -77,24 +77,4 @@ class MessageService:
 
     def get_message(self, message_id: int):
         """Retrieve a specific message by its Telegram message ID."""
-        return self.db.query(Message).filter(Message.message_id == message_id).first()
-
-    def get_unnormalized_messages(self, skip: int = 0, limit: Optional[int] = None):
-        """Retrieve messages that haven't been normalized yet.
-
-        Args:
-            skip: Number of records to skip for pagination
-            limit: Maximum number of records to return. If None, returns all messages.
-
-        Returns:
-            List of Message objects that haven't been normalized
-        """
-        query = self.db.query(Message).filter(Message.is_normalized == False)
-        
-        if skip:
-            query = query.offset(skip)
-        
-        if limit is not None:
-            query = query.limit(limit)
-            
-        return query.all()
+        return self.db.query(Message).filter(Message.message_id == message_id).first() 
