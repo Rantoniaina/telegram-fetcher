@@ -43,10 +43,18 @@ class TelegramFetcher:
             logger.info(f"Will fetch {fetch_limit} messages")
             
             messages = await self.client.get_messages(channel, limit=fetch_limit)
+            message_count = 0
             for msg in messages:
                 try:
+                    message_count += 1
                     # Add a small delay between messages to avoid rate limits
                     await asyncio.sleep(1)
+                    
+                    # Add longer sleep every 100 messages
+                    if message_count % 100 == 0:
+                        logger.info("Sleeping for 10 seconds to avoid rate limit.")
+                        await asyncio.sleep(10)
+                        
                     yield msg
                 except FloodWaitError as e:
                     logger.warning(f"Rate limit hit! Sleeping for {e.seconds} seconds")
