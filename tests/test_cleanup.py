@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from src.cleanup import CleanupService
-from src.models import Message
+from src.models import Message, NormalizedMessage
 
 @pytest.fixture
 def mock_db():
@@ -17,8 +17,8 @@ def cleanup_service(mock_db):
     """CleanupService fixture."""
     return CleanupService(mock_db)
 
-def test_cleanup_database(cleanup_service, mock_db):
-    """Test database cleanup."""
+def test_cleanup_database_all(cleanup_service, mock_db):
+    """Test database cleanup for all messages."""
     # Setup
     mock_db.query.return_value.delete.return_value = None
     mock_db.commit.return_value = None
@@ -28,7 +28,24 @@ def test_cleanup_database(cleanup_service, mock_db):
     
     # Verify
     assert result is True
-    mock_db.query.assert_called_once_with(Message)
+    assert mock_db.query.call_count == 2
+    mock_db.query.assert_any_call(NormalizedMessage)
+    mock_db.query.assert_any_call(Message)
+    assert mock_db.query.return_value.delete.call_count == 2
+    mock_db.commit.assert_called_once()
+
+def test_cleanup_database_normalized_only(cleanup_service, mock_db):
+    """Test database cleanup for normalized messages only."""
+    # Setup
+    mock_db.query.return_value.delete.return_value = None
+    mock_db.commit.return_value = None
+    
+    # Execute
+    result = cleanup_service.cleanup_database(message_type='normalized')
+    
+    # Verify
+    assert result is True
+    mock_db.query.assert_called_once_with(NormalizedMessage)
     mock_db.query.return_value.delete.assert_called_once()
     mock_db.commit.assert_called_once()
 
@@ -89,8 +106,44 @@ def test_cleanup_all_success(cleanup_service):
         
         # Verify
         assert result is True
-        cleanup_service.cleanup_database.assert_called_once()
+        cleanup_service.cleanup_database.assert_called_once_with(None)
         cleanup_service.cleanup_media.assert_called_once()
+
+def test_cleanup_database_only(cleanup_service):
+    """Test cleanup with database_only flag."""
+    with patch.object(cleanup_service, 'cleanup_database', return_value=True), \
+         patch.object(cleanup_service, 'cleanup_media', return_value=True):
+        # Execute
+        result = cleanup_service.cleanup_all(database_only=True)
+        
+        # Verify
+        assert result is True
+        cleanup_service.cleanup_database.assert_called_once_with(None)
+        cleanup_service.cleanup_media.assert_not_called()
+
+def test_cleanup_media_only(cleanup_service):
+    """Test cleanup with media_only flag."""
+    with patch.object(cleanup_service, 'cleanup_database', return_value=True), \
+         patch.object(cleanup_service, 'cleanup_media', return_value=True):
+        # Execute
+        result = cleanup_service.cleanup_all(media_only=True)
+        
+        # Verify
+        assert result is True
+        cleanup_service.cleanup_database.assert_not_called()
+        cleanup_service.cleanup_media.assert_called_once()
+
+def test_cleanup_database_with_message_type(cleanup_service):
+    """Test cleanup with specific message type."""
+    with patch.object(cleanup_service, 'cleanup_database', return_value=True), \
+         patch.object(cleanup_service, 'cleanup_media', return_value=True):
+        # Execute
+        result = cleanup_service.cleanup_all(database_only=True, message_type='normalized')
+        
+        # Verify
+        assert result is True
+        cleanup_service.cleanup_database.assert_called_once_with('normalized')
+        cleanup_service.cleanup_media.assert_not_called()
 
 def test_cleanup_all_partial_failure(cleanup_service):
     """Test cleanup when one operation fails."""

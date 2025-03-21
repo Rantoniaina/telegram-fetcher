@@ -85,6 +85,19 @@ Options:
 - `--limit INTEGER`: Number of messages to display (default: 100)
 - `--skip INTEGER`: Number of messages to skip (default: 0)
 
+### 🔄 Normalize Messages
+
+To normalize stored messages:
+
+```bash
+python -m src.cli normalize
+```
+
+Options:
+
+- `--batch-size INTEGER`: Number of messages to process in each batch (default: 100)
+- `--skip-empty`: Skip messages with empty text content
+
 ### 🧹 Cleanup
 
 To clean up stored messages and media files:
@@ -95,8 +108,28 @@ python -m src.cli cleanup
 
 Options:
 
+- `--force`, `-f`: Skip confirmation prompt before cleanup
 - `--database-only`: Clean up only the database records
+  - `--message-type`: Type of messages to clean ('messages' or 'normalized')
+    - 'messages': Clean up raw message records
+    - 'normalized': Clean up only normalized message records
 - `--media-only`: Clean up only the downloaded media files
+
+Examples:
+
+```bash
+# Clean everything with confirmation
+python -m src.cli cleanup
+
+# Clean everything without confirmation
+python -m src.cli cleanup --force
+
+# Clean only normalized messages
+python -m src.cli cleanup --database-only --message-type normalized
+
+# Clean only media files
+python -m src.cli cleanup --media-only
+```
 
 ## 🛡️ Rate Limits and Error Handling
 
