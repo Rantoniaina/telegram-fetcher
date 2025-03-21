@@ -152,6 +152,7 @@ def cleanup(
 @app.command()
 def normalize(
     limit: int = typer.Option(None, help="Maximum number of messages to normalize in each batch"),
+    skip_empty: bool = typer.Option(False, help="Skip normalizing messages with empty text"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed progress for each message")
 ):
     """Normalize stored messages."""

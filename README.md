@@ -85,6 +85,19 @@ Options:
 - `--limit INTEGER`: Number of messages to display (default: 100)
 - `--skip INTEGER`: Number of messages to skip (default: 0)
 
+### 🔄 Normalize Messages
+
+To normalize stored messages:
+
+```bash
+python -m src.cli normalize
+```
+
+Options:
+
+- `--batch-size INTEGER`: Number of messages to process in each batch (default: 100)
+- `--skip-empty`: Skip messages with empty text content
+
 ### 🧹 Cleanup
 
 To clean up stored messages and media files:
