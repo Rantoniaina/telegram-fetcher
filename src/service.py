@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, Callable
 from telethon.tl.types import Message as TelegramMessage
 
-from .models import Message
+from .models import Message, MediaFile
 from .telegram_client import TelegramFetcher
 
 
@@ -16,6 +16,7 @@ class MessageService:
         self,
         limit: Optional[int] = None,
         download_media: bool = True,
+        keywords: Optional[list[str]] = None,
         progress_callback: Optional[Callable[[TelegramMessage, int, int], None]] = None
     ):
         """
@@ -41,7 +42,7 @@ class MessageService:
                     if progress_callback:
                         progress_callback(telegram_msg, message_count, total_messages)
                     
-                    # Create database record first
+                    # Create or update database record
                     message = Message(
                         message_id=telegram_msg.id,
                         date=telegram_msg.date,
@@ -51,11 +52,19 @@ class MessageService:
                     )
                     
                     # Save message to get its ID
-                    self.db.add(message)
+                    message = self.db.merge(message)
                     self.db.flush()
                     
-                    # Download media if present and enabled
-                    if download_media and telegram_msg.media:
+                    # Check if message matches keywords first if provided
+                    matches_keywords = True
+                    if keywords:
+                        matches_keywords = any(keyword.lower() in (telegram_msg.text or "").lower() for keyword in keywords)
+                    
+                    # Check if media download is enabled and media exists
+                    should_download = download_media and telegram_msg.media
+                    
+                    # Only download if all conditions are met including keywords match
+                    if should_download and (not keywords or matches_keywords):
                         media_path = await fetcher.download_media(telegram_msg)
                         if media_path:
                             # Create media file record
@@ -64,11 +73,10 @@ class MessageService:
                                 file_path=str(media_path),
                                 file_type=type(telegram_msg.media).__name__
                             )
-                            self.db.add(media_file)
+                            media_file = self.db.merge(media_file)
                     
                     # Synchronous database operations
                     try:
-                        self.db.merge(message)
                         self.db.commit()
                     except Exception as db_error:
                         self.db.rollback()

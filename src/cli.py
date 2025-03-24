@@ -27,6 +27,7 @@ logger.add(sys.stderr, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <leve
 def fetch(
     limit: int = typer.Option(None, help="Limit the number of messages to fetch"),
     no_media: bool = typer.Option(False, help="Skip downloading media files"),
+    keywords: str = typer.Option(None, help="Comma-separated keywords to filter messages for media download"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed progress for each message")
 ):
     """Fetch messages from the Telegram channel."""
@@ -45,9 +46,13 @@ def fetch(
             disable=not verbose
         ) as progress:
             task = progress.add_task("Initializing...", total=None)
+            # Process keywords if provided
+            keyword_list = [k.strip() for k in keywords.split(",")] if keywords else None
+            
             asyncio.run(service.process_messages(
                 limit=limit,
                 download_media=not no_media,
+                keywords=keyword_list,
                 progress_callback=lambda msg, current, total: progress.update(
                     task,
                     completed=current,
@@ -85,7 +90,7 @@ def list(
                 str(msg.message_id),
                 str(msg.date),
                 (msg.text[:50] + "...") if msg.text and len(msg.text) > 50 else str(msg.text),
-                "✓" if msg.media_path else "✗"
+                "✓" if msg.media_files else "✗"
             )
         
         console.print(table)

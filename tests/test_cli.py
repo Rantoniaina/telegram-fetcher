@@ -41,6 +41,7 @@ def test_list_command(runner, mock_service, mock_db):
         Message(message_id=2, text="Test 2", date=datetime.now())
     ]
     mock_service.get_messages.return_value = messages
+    mock_db.commit.return_value = None  # Ensure commit doesn't raise exception
     
     with patch('src.cli.get_db', return_value=iter([mock_db])), \
          patch('src.cli.MessageService', return_value=mock_service):
@@ -81,6 +82,7 @@ def test_fetch_command(runner, mock_service, mock_db):
     mock_service.process_messages.assert_called_once_with(
         limit=None,
         download_media=True,  # no_media is False by default
+        keywords=None,  # no keywords by default
         progress_callback=ANY  # Use ANY to match any callback function
     )
 
@@ -98,14 +100,17 @@ def test_fetch_command_with_options(runner, mock_service, mock_db):
         result = runner.invoke(app, [
             "fetch",
             "--limit", "10",
-            "--no-media"
+            "--keywords", "important,update",
+            "--no-media",
+            "--verbose"
         ])
     
     assert result.exit_code == 0
     mock_service.process_messages.assert_called_once_with(
         limit=10,
-        download_media=False,
-        progress_callback=ANY  # Use ANY to match any callback function
+        download_media=False,  # no_media is True
+        keywords=["important", "update"],
+        progress_callback=ANY
     )
 
 def test_list_command_error_handling(runner, mock_db):
