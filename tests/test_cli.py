@@ -127,4 +127,201 @@ async def test_fetch_command_error_handling(runner, mock_db):
         result = runner.invoke(app, ["fetch"])
     
     assert result.exit_code == 1
-    assert "Error" in result.stdout 
+    assert "Error" in result.stdout
+
+@pytest.fixture
+def mock_cleanup_service():
+    """Mock CleanupService fixture."""
+    service = Mock()
+    service.cleanup_all = Mock(return_value=True)
+    return service
+
+def test_cleanup_command_basic(runner, mock_db, mock_cleanup_service):
+    """Test the basic cleanup command."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service), \
+         patch('src.cli.Confirm.ask', return_value=True):
+        result = runner.invoke(app, ["cleanup"])
+    
+    assert result.exit_code == 0
+    mock_cleanup_service.cleanup_all.assert_called_once_with(
+        database_only=False,
+        media_only=False,
+        message_type=None
+    )
+
+def test_cleanup_command_force(runner, mock_db, mock_cleanup_service):
+    """Test cleanup command with force option."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service):
+        result = runner.invoke(app, ["cleanup", "--force"])
+    
+    assert result.exit_code == 0
+    mock_cleanup_service.cleanup_all.assert_called_once()
+
+def test_cleanup_command_database_only(runner, mock_db, mock_cleanup_service):
+    """Test cleanup command with database-only option."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service), \
+         patch('src.cli.Confirm.ask', return_value=True):
+        result = runner.invoke(app, ["cleanup", "--database-only", "--message-type", "normalized"])
+    
+    assert result.exit_code == 0
+    mock_cleanup_service.cleanup_all.assert_called_once_with(
+        database_only=True,
+        media_only=False,
+        message_type="normalized"
+    )
+
+def test_cleanup_command_invalid_options(runner, mock_db, mock_cleanup_service):
+    """Test cleanup command with invalid options combination."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service):
+        result = runner.invoke(app, ["cleanup", "--database-only", "--media-only"])
+    
+    assert result.exit_code == 0
+    assert "Cannot use both" in result.stdout
+    mock_cleanup_service.cleanup_all.assert_not_called()
+
+def test_cleanup_command_failure(runner, mock_db, mock_cleanup_service):
+    """Test cleanup command when operation fails."""
+    mock_cleanup_service.cleanup_all.return_value = False
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service), \
+         patch('src.cli.Confirm.ask', return_value=True):
+        result = runner.invoke(app, ["cleanup"])
+    
+    assert result.exit_code == 1
+    assert "errors occurred" in result.stdout
+
+@pytest.fixture
+def mock_normalization_service():
+    """Mock NormalizationService fixture."""
+    service = Mock()
+    service.normalize_messages = Mock(return_value=5)
+    return service
+
+def test_stop_command_basic(runner):
+    """Test basic stop command without cleanup."""
+    with patch('subprocess.run') as mock_run:
+        result = runner.invoke(app, ["stop"])
+    
+    assert result.exit_code == 0
+    assert "stopped successfully" in result.stdout
+    mock_run.assert_called_once_with(['docker-compose', 'down'], check=True)
+
+def test_stop_command_with_cleanup(runner, mock_db):
+    """Test stop command with data cleanup."""
+    mock_cleanup_service = Mock()
+    mock_cleanup_service.cleanup_all.return_value = True
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service), \
+         patch('subprocess.run') as mock_run:
+        result = runner.invoke(app, ["stop", "--clear-database", "--clear-media"])
+    
+    assert result.exit_code == 0
+    mock_cleanup_service.cleanup_all.assert_called_once()
+    mock_run.assert_called_once_with(['docker-compose', 'down'], check=True)
+
+def test_stop_command_docker_error(runner):
+    """Test stop command when Docker operation fails."""
+    with patch('subprocess.run', side_effect=FileNotFoundError("Docker not found")):
+        result = runner.invoke(app, ["stop"])
+    
+    assert "Docker Compose not found" in result.stdout
+
+def test_stop_command_cleanup_error(runner, mock_db):
+    """Test stop command when cleanup fails."""
+    mock_cleanup_service = Mock()
+    mock_cleanup_service.cleanup_all.return_value = False
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.CleanupService', return_value=mock_cleanup_service), \
+         patch('subprocess.run') as mock_run:
+        result = runner.invoke(app, ["stop", "--clear-database"])
+    
+    assert result.exit_code == 1
+    assert "errors occurred during cleanup" in result.stdout
+
+def test_init_command_basic(runner):
+    """Test basic initialization command."""
+    with patch('src.cli.Path.exists', return_value=False), \
+         patch('src.cli.Path.mkdir') as mock_mkdir, \
+         patch('src.cli.init_db') as mock_init_db, \
+         patch('subprocess.run') as mock_run:
+        # Mock Docker Compose check (no containers running)
+        mock_run.side_effect = [
+            Mock(stdout='', returncode=0),  # docker-compose ps
+            Mock(returncode=0)  # docker-compose up
+        ]
+        
+        result = runner.invoke(app, ["init"])
+    
+    assert result.exit_code == 0
+    mock_mkdir.assert_called_once()
+    mock_init_db.assert_called_once()
+    assert mock_run.call_count == 2
+    assert "initialized successfully" in result.stdout
+
+def test_init_command_docker_running(runner):
+    """Test init command when Docker services are already running."""
+    with patch('src.cli.Path.exists', return_value=True), \
+         patch('src.cli.init_db'), \
+         patch('subprocess.run') as mock_run:
+        # Mock Docker Compose check (containers running)
+        mock_run.return_value = Mock(stdout='container1\n', returncode=0)
+        
+        result = runner.invoke(app, ["init"])
+    
+    assert result.exit_code == 0
+    assert "already running" in result.stdout
+
+def test_init_command_docker_error(runner):
+    """Test init command with Docker error."""
+    with patch('src.cli.Path.exists', return_value=True), \
+         patch('src.cli.init_db'), \
+         patch('subprocess.run', side_effect=FileNotFoundError()):
+        result = runner.invoke(app, ["init"])
+    
+    assert result.exit_code == 0  # Non-fatal error
+    assert "Docker Compose not found" in result.stdout
+
+def test_init_command_database_error(runner):
+    """Test init command with database error."""
+    with patch('src.cli.Path.exists', return_value=True), \
+         patch('src.cli.init_db', side_effect=Exception("Database error")), \
+         patch('subprocess.run'):
+        result = runner.invoke(app, ["init"])
+    
+    assert result.exit_code == 1
+    assert "Error during initialization" in result.stdout
+
+def test_normalize_command_basic(runner, mock_db, mock_normalization_service):
+    """Test the basic normalize command."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.NormalizationService', return_value=mock_normalization_service), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["normalize"])
+    
+    assert result.exit_code == 0
+    mock_normalization_service.normalize_messages.assert_called_once_with(batch_size=100)
+    assert "5 messages normalized" in result.stdout
+
+def test_normalize_command_with_options(runner, mock_db, mock_normalization_service):
+    """Test normalize command with options."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.NormalizationService', return_value=mock_normalization_service), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["normalize", "--limit", "50", "--skip-empty", "--verbose"])
+    
+    assert result.exit_code == 0
+    mock_normalization_service.normalize_messages.assert_called_once_with(batch_size=50)
+
+def test_normalize_command_error(runner, mock_db):
+    """Test normalize command error handling."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.NormalizationService', side_effect=Exception("Test error")), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["normalize"])
+    
+    assert result.exit_code == 1
+    assert "Error" in result.stdout

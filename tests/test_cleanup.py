@@ -154,3 +154,79 @@ def test_cleanup_all_partial_failure(cleanup_service):
         
         # Verify
         assert result is False
+
+def test_cleanup_database_invalid_message_type(cleanup_service, mock_db):
+    """Test cleanup with invalid message type."""
+    # Execute
+    result = cleanup_service.cleanup_database(message_type='invalid_type')
+    
+    # Verify
+    assert result is True
+    mock_db.query.assert_any_call(NormalizedMessage)
+    mock_db.query.assert_any_call(Message)
+    assert mock_db.query.return_value.delete.call_count == 2
+    mock_db.commit.assert_called_once()
+
+def test_cleanup_database_transaction_error(cleanup_service, mock_db):
+    """Test database cleanup with transaction error."""
+    # Setup
+    mock_db.commit.side_effect = Exception("Transaction error")
+    
+    # Execute
+    result = cleanup_service.cleanup_database()
+    
+    # Verify
+    assert result is False
+    mock_db.rollback.assert_called_once()
+
+def test_cleanup_media_permission_error(cleanup_service):
+    """Test media cleanup with permission error."""
+    # Setup
+    with patch.object(Path, 'exists', return_value=True), \
+         patch.object(Path, 'glob') as mock_glob, \
+         patch.object(Path, 'unlink', side_effect=PermissionError("Access denied")):
+        mock_glob.return_value = [Path('test1.jpg')]
+        
+        # Execute
+        result = cleanup_service.cleanup_media()
+        
+        # Verify
+        assert result is False
+
+def test_cleanup_database_invalid_message_type(cleanup_service, mock_db):
+    """Test cleanup with invalid message type."""
+    # Execute
+    result = cleanup_service.cleanup_database(message_type='invalid_type')
+    
+    # Verify
+    assert result is True
+    mock_db.query.assert_any_call(NormalizedMessage)
+    mock_db.query.assert_any_call(Message)
+    assert mock_db.query.return_value.delete.call_count == 2
+    mock_db.commit.assert_called_once()
+
+def test_cleanup_database_transaction_error(cleanup_service, mock_db):
+    """Test database cleanup with transaction error."""
+    # Setup
+    mock_db.commit.side_effect = Exception("Transaction error")
+    
+    # Execute
+    result = cleanup_service.cleanup_database()
+    
+    # Verify
+    assert result is False
+    mock_db.rollback.assert_called_once()
+
+def test_cleanup_media_permission_error(cleanup_service):
+    """Test media cleanup with permission error."""
+    # Setup
+    with patch.object(Path, 'exists', return_value=True), \
+         patch.object(Path, 'glob') as mock_glob, \
+         patch.object(Path, 'unlink', side_effect=PermissionError("Access denied")):
+        mock_glob.return_value = [Path('test1.jpg')]
+        
+        # Execute
+        result = cleanup_service.cleanup_media()
+        
+        # Verify
+        assert result is False
