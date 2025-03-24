@@ -6,10 +6,14 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.prompt import Confirm
 from loguru import logger
 import sys
-
+import subprocess
+import os
+from pathlib import Path
 from .models import init_db, get_db
 from .service import MessageService
 from .config import settings
+from .cleanup import CleanupService
+from .normalization import NormalizationService
 
 app = typer.Typer()
 console = Console()
@@ -123,7 +127,6 @@ def cleanup(
             return
 
         db = next(get_db())
-        from .cleanup import CleanupService
         cleanup_service = CleanupService(db)
         
         with Progress(
@@ -158,7 +161,6 @@ def normalize(
     """Normalize stored messages."""
     try:
         db = next(get_db())
-        from .normalization import NormalizationService
         service = NormalizationService(db)
         
         console.print("[bold green]Starting message normalization...[/bold green]")
@@ -171,12 +173,80 @@ def normalize(
             disable=not verbose
         ) as progress:
             task = progress.add_task("Normalizing messages...", total=None)
-            normalized_count = service.normalize_messages(batch_size=limit or 100)
+            normalized_count = service.normalize_messages(
+                batch_size=limit or 100
+            )
             if verbose:
                 progress.update(task, completed=normalized_count, total=normalized_count)
         
         console.print(f"[bold green]Normalization completed! {normalized_count} messages normalized.[/bold green]")
         
+    except Exception as e:
+        console.print(f"[bold red]Error: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def init():
+    """Initialize the project by setting up database, required directories, and Docker services."""
+    try:
+        # Create media directory if it doesn't exist
+        media_path = Path(settings.MEDIA_PATH)
+        if not media_path.exists():
+            media_path.mkdir(parents=True)
+            console.print(f"[green]Created media directory at {media_path}[/green]")
+        
+        # Initialize database
+        init_db()
+        console.print("[green]Database initialized successfully![/green]")
+        
+        # Check if Docker Compose services are running
+        import subprocess
+        try:
+            # Check if containers are running
+            result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True)
+            if not result.stdout.strip():
+                console.print("[yellow]Docker Compose services are not running. Starting them now...[/yellow]")
+                subprocess.run(['docker-compose', 'up', '-d'], check=True)
+                console.print("[green]Docker Compose services started successfully![/green]")
+            else:
+                console.print("[green]Docker Compose services are already running.[/green]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[yellow]Warning: Could not check/start Docker Compose services: {e}[/yellow]")
+        except FileNotFoundError:
+            console.print("[yellow]Warning: Docker Compose not found. Please ensure Docker is installed.[/yellow]")
+        
+        console.print("[bold green]Project initialization completed! You can now start using the application.[/bold green]")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error during initialization: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def stop(
+    clear_database: bool = typer.Option(False, "--clear-database", help="Clear database before stopping"),
+    clear_media: bool = typer.Option(False, "--clear-media", help="Clear media files before stopping")
+):
+    """Stop Docker services."""
+    try:
+        if clear_database or clear_media:
+            db = next(get_db())
+            cleanup_service = CleanupService(db)
+            success = cleanup_service.cleanup_all(
+                database_only=clear_database and not clear_media,
+                media_only=clear_media and not clear_database
+            )
+            if not success:
+                console.print("[bold red]Some errors occurred during cleanup[/bold red]")
+                raise typer.Exit(1)
+
+        # Stop Docker services
+        subprocess.run(['docker-compose', 'down'], check=True)
+        console.print("[bold green]Services stopped successfully![/bold green]")
+        
+    except FileNotFoundError:
+        console.print("[yellow]Docker Compose not found. Make sure Docker is installed.[/yellow]")
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         raise typer.Exit(1)

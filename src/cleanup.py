@@ -63,13 +63,12 @@ class CleanupService:
             media_only (bool): Only clean the media files
             message_type (str, optional): Type of messages to clean when database_only is True
         """
-        db_success = True
-        media_success = True
+        success = True
         
         if not media_only:
-            db_success = self.cleanup_database(message_type)
+            success = success and self.cleanup_database(message_type)
         
         if not database_only:
-            media_success = self.cleanup_media()
+            success = success and self.cleanup_media()
             
-        return db_success and media_success
+        return success

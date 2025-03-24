@@ -58,6 +58,20 @@ Edit `.env` with your Telegram API credentials and other settings.
 
 The application provides a CLI interface with the following commands:
 
+### 🚀 Initialize Project
+
+To set up the project for first use:
+
+```bash
+python -m src.cli init
+```
+
+This command will:
+
+- Create necessary directories
+- Initialize the database
+- Start required Docker services
+
 ### 📥 Fetch Messages
 
 To fetch messages from the configured channel:
@@ -95,8 +109,9 @@ python -m src.cli normalize
 
 Options:
 
-- `--batch-size INTEGER`: Number of messages to process in each batch (default: 100)
+- `--limit INTEGER`: Maximum number of messages to normalize in each batch
 - `--skip-empty`: Skip messages with empty text content
+- `--verbose`: Show detailed progress for each message
 
 ### 🧹 Cleanup
 
@@ -131,21 +146,37 @@ python -m src.cli cleanup --database-only --message-type normalized
 python -m src.cli cleanup --media-only
 ```
 
+### 🛑 Stop Services
+
+To stop running Docker services:
+
+```bash
+python -m src.cli stop
+```
+
+Options:
+
+- `--clear-database`: Clear database before stopping
+- `--clear-media`: Clear media files before stopping
+
 ## 🛡️ Rate Limits and Error Handling
 
 The application implements robust error handling for various Telegram API restrictions:
 
 ### Rate Limits
+
 - Automatically handles Telegram's FloodWaitError
 - Smart retry mechanism with exponential backoff
 - Continues operation after waiting the required time
 
 ### Media Downloads
+
 - Graceful handling of media download failures
 - Automatic retries for temporary errors
 - Skips problematic media files to continue operation
 
 ### Best Practices
+
 - Respects Telegram API's rate limiting
 - Implements safe error recovery
 - Prevents account bans through smart throttling
