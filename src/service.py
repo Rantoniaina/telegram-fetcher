@@ -41,20 +41,30 @@ class MessageService:
                     if progress_callback:
                         progress_callback(telegram_msg, message_count, total_messages)
                     
-                    # Download media if present and enabled
-                    media_path = None
-                    if download_media and telegram_msg.media:
-                        media_path = await fetcher.download_media(telegram_msg)
-                    
-                    # Create database record
+                    # Create database record first
                     message = Message(
                         message_id=telegram_msg.id,
                         date=telegram_msg.date,
                         chat_id=telegram_msg.chat_id,
                         sender_id=telegram_msg.sender_id,
-                        text=telegram_msg.text,
-                        media_path=str(media_path) if media_path else None
+                        text=telegram_msg.text
                     )
+                    
+                    # Save message to get its ID
+                    self.db.add(message)
+                    self.db.flush()
+                    
+                    # Download media if present and enabled
+                    if download_media and telegram_msg.media:
+                        media_path = await fetcher.download_media(telegram_msg)
+                        if media_path:
+                            # Create media file record
+                            media_file = MediaFile(
+                                message_id=message.id,
+                                file_path=str(media_path),
+                                file_type=type(telegram_msg.media).__name__
+                            )
+                            self.db.add(media_file)
                     
                     # Synchronous database operations
                     try:
