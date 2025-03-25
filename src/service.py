@@ -51,9 +51,14 @@ class MessageService:
                         text=telegram_msg.text
                     )
                     
-                    # Save message to get its ID
-                    message = self.db.merge(message)
-                    self.db.flush()
+                    try:
+                        # Save message to get its ID
+                        message = self.db.merge(message)
+                        self.db.flush()
+                    except Exception as db_error:
+                        self.db.rollback()
+                        logger.error(f"Database error for message {telegram_msg.id}: {db_error}")
+                        continue
                     
                     # Check if message matches keywords first if provided
                     matches_keywords = True
@@ -63,17 +68,22 @@ class MessageService:
                     # Check if media download is enabled and media exists
                     should_download = download_media and telegram_msg.media
                     
-                    # Only download if all conditions are met including keywords match
+                    # Download media if enabled and either no keywords are provided or message matches keywords
                     if should_download and (not keywords or matches_keywords):
                         media_path = await fetcher.download_media(telegram_msg)
                         if media_path:
                             # Create media file record
-                            media_file = MediaFile(
-                                message_id=message.id,
-                                file_path=str(media_path),
-                                file_type=type(telegram_msg.media).__name__
-                            )
-                            media_file = self.db.merge(media_file)
+                            try:
+                                media_file = MediaFile(
+                                    message_id=message.id,
+                                    file_path=str(media_path),
+                                    file_type=type(telegram_msg.media).__name__
+                                )
+                                media_file = self.db.merge(media_file)
+                            except Exception as db_error:
+                                self.db.rollback()
+                                logger.error(f"Database error for media file of message {telegram_msg.id}: {db_error}")
+                                continue
                     
                     # Synchronous database operations
                     try:
