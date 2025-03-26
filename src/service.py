@@ -63,7 +63,8 @@ class MessageService:
                     # Check if message matches keywords first if provided
                     matches_keywords = True
                     if keywords:
-                        matches_keywords = any(keyword.lower() in (telegram_msg.text or "").lower() for keyword in keywords)
+                        message_text = (telegram_msg.text or "").lower()
+                        matches_keywords = any(keyword.lower() in message_text for keyword in keywords)
                     
                     # Check if media download is enabled and media exists
                     should_download = download_media and telegram_msg.media

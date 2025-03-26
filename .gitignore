@@ -191,3 +191,4 @@ data/
 docker-compose.override.yml
 DEVELOPMENT.md
 telegram_fetcher.*
+media/
