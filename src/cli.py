@@ -8,6 +8,7 @@ from loguru import logger
 import sys
 import subprocess
 import os
+from datetime import datetime
 from pathlib import Path
 from .models import init_db, get_db
 from .service import MessageService
@@ -28,10 +29,19 @@ def fetch(
     limit: int = typer.Option(None, help="Limit the number of messages to fetch"),
     no_media: bool = typer.Option(False, help="Skip downloading media files"),
     keywords: str = typer.Option(None, help="Comma-separated keywords to filter messages for media download"),
+    date: str = typer.Option(None, help="Filter messages by date (format: dd-MM-yyyy)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed progress for each message")
 ):
     """Fetch messages from the Telegram channel."""
     try:
+        # Validate date format if provided
+        if date:
+            try:
+                datetime.strptime(date, "%d-%m-%Y")
+            except ValueError:
+                console.print("[bold red]Invalid date format. Please use dd-MM-yyyy format (e.g., 01-01-2023)[/bold red]")
+                raise typer.Exit(1)
+
         init_db()
         db = next(get_db())
         service = MessageService(db)
@@ -53,6 +63,7 @@ def fetch(
                 limit=limit,
                 download_media=not no_media,
                 keywords=keyword_list,
+                date=date,
                 progress_callback=lambda msg, current, total: progress.update(
                     task,
                     completed=current,
