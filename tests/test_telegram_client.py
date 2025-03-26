@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from src.telegram_client import TelegramFetcher
 from unittest.mock import call
+from telethon.errors import FloodWaitError
 
 @pytest.fixture
 def mock_telethon_client():
@@ -107,6 +108,59 @@ async def test_download_media(telegram_client, mock_telethon_client):
     # Verify
     assert result is not None
     mock_message.download_media.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_download_media_with_rate_limit(telegram_client, mock_telethon_client):
+    """Test handling rate limits during media download."""
+    # Setup mock
+    mock_message = AsyncMock()
+    mock_message.media = Mock()
+    mock_message.id = 123
+    
+    # Simulate rate limit on first attempt, then success
+    flood_error = FloodWaitError(2)  # 2 seconds wait
+    mock_message.download_media = AsyncMock(side_effect=[flood_error, "downloaded_file.jpg"])
+    
+    # Download media
+    async with telegram_client:
+        result = await telegram_client.download_media(mock_message)
+    
+    # Verify
+    assert result is not None
+    assert mock_message.download_media.call_count == 2
+
+@pytest.mark.asyncio
+async def test_download_media_error(telegram_client, mock_telethon_client):
+    """Test handling general errors during media download."""
+    # Setup mock
+    mock_message = AsyncMock()
+    mock_message.media = Mock()
+    mock_message.id = 123
+    mock_message.download_media = AsyncMock(side_effect=Exception("Download failed"))
+    
+    # Download media
+    async with telegram_client:
+        result = await telegram_client.download_media(mock_message)
+    
+    # Verify
+    assert result is None
+    mock_message.download_media.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_download_media_no_media(telegram_client, mock_telethon_client):
+    """Test attempting to download from message without media."""
+    # Setup mock
+    mock_message = AsyncMock()
+    mock_message.media = None
+    mock_message.id = 123
+    
+    # Download media
+    async with telegram_client:
+        result = await telegram_client.download_media(mock_message)
+    
+    # Verify
+    assert result is None
+    assert not mock_message.download_media.called
 
 @pytest.mark.asyncio
 async def test_fetch_messages_with_limit(telegram_client, mock_telethon_client):

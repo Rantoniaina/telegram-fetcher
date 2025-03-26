@@ -10,12 +10,14 @@ A powerful Python application for fetching and storing messages from Telegram ch
 ## ✨ Features
 
 - 📥 Fetch messages from Telegram channels
+- 🔍 Filter messages by keywords
 - 🖼️ Download and store media files
 - 💾 Store messages in SQLite database
 - 🖥️ CLI interface with rich formatting
 - ⚡ Async support for better performance
 - 📝 Comprehensive logging
 - 🎯 Type hints and documentation
+- 🛡️ Smart rate limit and ban handling
 
 ## 🛠️ Prerequisites
 
@@ -57,6 +59,20 @@ Edit `.env` with your Telegram API credentials and other settings.
 
 The application provides a CLI interface with the following commands:
 
+### 🚀 Initialize Project
+
+To set up the project for first use:
+
+```bash
+python -m src.cli init
+```
+
+This command will:
+
+- Create necessary directories
+- Initialize the database
+- Start required Docker services
+
 ### 📥 Fetch Messages
 
 To fetch messages from the configured channel:
@@ -69,6 +85,9 @@ Options:
 
 - `--limit INTEGER`: Limit the number of messages to fetch
 - `--no-media`: Skip downloading media files
+- `--keywords LIST`: Filter messages by keywords (comma-separated)
+- `--date STRING`: Filter messages by date (format: dd-MM-yyyy)
+  > ⚠️ Note: Currently, the date filter fetches all messages first and then filters them locally. This means the initial fetch may take longer than expected as it doesn't utilize Telegram's API date filtering.
 - `--verbose`: Enable verbose logging
 
 ### 📋 List Messages
@@ -84,6 +103,88 @@ Options:
 - `--limit INTEGER`: Number of messages to display (default: 100)
 - `--skip INTEGER`: Number of messages to skip (default: 0)
 
+### 🔄 Normalize Messages
+
+To normalize stored messages:
+
+```bash
+python -m src.cli normalize
+```
+
+Options:
+
+- `--limit INTEGER`: Maximum number of messages to normalize in each batch
+- `--skip-empty`: Skip messages with empty text content
+- `--verbose`: Show detailed progress for each message
+
+### 🧹 Cleanup
+
+To clean up stored messages and media files:
+
+```bash
+python -m src.cli cleanup
+```
+
+Options:
+
+- `--force`, `-f`: Skip confirmation prompt before cleanup
+- `--database-only`: Clean up only the database records
+  - `--message-type`: Type of messages to clean ('messages' or 'normalized')
+    - 'messages': Clean up raw message records
+    - 'normalized': Clean up only normalized message records
+- `--media-only`: Clean up only the downloaded media files
+
+Examples:
+
+```bash
+# Clean everything with confirmation
+python -m src.cli cleanup
+
+# Clean everything without confirmation
+python -m src.cli cleanup --force
+
+# Clean only normalized messages
+python -m src.cli cleanup --database-only --message-type normalized
+
+# Clean only media files
+python -m src.cli cleanup --media-only
+```
+
+### 🛑 Stop Services
+
+To stop running Docker services:
+
+```bash
+python -m src.cli stop
+```
+
+Options:
+
+- `--clear-database`: Clear database before stopping
+- `--clear-media`: Clear media files before stopping
+
+## 🛡️ Rate Limits and Error Handling
+
+The application implements robust error handling for various Telegram API restrictions:
+
+### Rate Limits
+
+- Automatically handles Telegram's FloodWaitError
+- Smart retry mechanism with exponential backoff
+- Continues operation after waiting the required time
+
+### Media Downloads
+
+- Graceful handling of media download failures
+- Automatic retries for temporary errors
+- Skips problematic media files to continue operation
+
+### Best Practices
+
+- Respects Telegram API's rate limiting
+- Implements safe error recovery
+- Prevents account bans through smart throttling
+
 ## 📁 Project Structure
 
 ```
@@ -98,83 +199,15 @@ telegram-fetcher/
 ├── 📂 data/
 │   ├── media/          # Downloaded media files
 │   └── telegram.db     # SQLite database
-├── requirements.txt
-├── .env.example
-└── README.md
+├── 📂 tests/           # Test suite
+├── 📄 requirements.txt # Dependencies
+└── 📄 README.md       # This file
 ```
 
-## 🤝 Contributing
-
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. ✍️ Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. 🚀 Push to the branch (`git push origin feature/amazing-feature`)
-5. 🎉 Open a Pull Request
-
-## 📝 Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-TELEGRAM_API_ID=your_api_id
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_PHONE=your_phone_number
-CHANNEL_NAME=target_channel_name
-DATABASE_URL=sqlite:///data/telegram.db
-```
-
-## 📈 Performance
-
-- ⚡ Asynchronous message fetching
-- 🗄️ Efficient SQLite database storage
-- 📊 Progress tracking and statistics
-- 🚦 Rate limiting support
-
-## 🧪 Testing
-
-The project includes a comprehensive test suite using pytest. The tests cover the following components:
-
-- 🔄 **Models**: Database model validation and operations
-- 🌐 **Service Layer**: Message processing and media handling
-- 📡 **Telegram Client**: Connection, message fetching, and media downloads
-
-To run the tests:
-
-```bash
-# Install test dependencies
-pip install pytest pytest-asyncio
-
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_models.py
-
-# Run with verbose output
-pytest -v
-
-# Run with coverage report
-pytest --cov=src tests/
-```
-
-### Test Structure
-
-```
-tests/
-├── conftest.py          # Shared fixtures and configuration
-├── test_models.py       # Database model tests
-├── test_service.py      # Service layer tests
-└── test_telegram_client.py  # Telegram client tests
-```
-
-Each test module focuses on a specific component of the application, ensuring proper functionality and error handling.
-
-## 📄 License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+## 🤝 Contributing
 
-<div align="center">
-Made with ❤️ by @Rantoniaina
-</div>
+Contributions are welcome! Please feel free to submit a Pull Request.

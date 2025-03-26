@@ -116,7 +116,8 @@ async def test_process_messages(service, mock_db):
         await service.process_messages(
             limit=5,
             download_media=True,
-            progress_callback=mock_progress
+            progress_callback=mock_progress,
+            keywords=None
         )
     
     # Verify database operations
@@ -133,6 +134,50 @@ async def test_process_messages_with_media(service, mock_db):
         text="Test with media",
         media=Mock()  # Add media mock
     )
+
+@pytest.mark.asyncio
+async def test_process_messages_with_keywords(service, mock_db):
+    """Test processing messages with keyword filtering."""
+    # Setup mock messages with different texts
+    mock_messages = [
+        MockTelegramMessage(id=1, text="Important update about project", media=Mock()),
+        MockTelegramMessage(id=2, text="Random message", media=Mock()),
+        MockTelegramMessage(id=3, text="Another important note", media=Mock())
+    ]
+    
+    # Setup mock fetcher
+    mock_fetcher = AsyncMock()
+    mock_fetcher.__aenter__.return_value = mock_fetcher
+    mock_fetcher.fetch_messages = Mock(return_value=AsyncIterator(mock_messages))
+    mock_fetcher.download_media = AsyncMock(return_value="media/test.jpg")
+    
+    with patch('src.service.TelegramFetcher', return_value=mock_fetcher):
+        # Process messages with keyword filter
+        await service.process_messages(
+            download_media=True,
+            keywords=["important"]
+        )
+    
+    # Verify only messages with keyword were processed for media
+    assert mock_fetcher.download_media.call_count == 2  # Only messages with "important"
+    # Verify all messages were saved to database (3 messages + 2 media files)
+    assert mock_db.merge.call_count == len(mock_messages) + mock_fetcher.download_media.call_count
+    assert mock_db.commit.call_count == len(mock_messages)
+    
+    # Verify media was only downloaded for messages with keyword
+    download_calls = mock_fetcher.download_media.call_args_list
+    assert len(download_calls) == 2
+    assert download_calls[0] == call(mock_messages[0])  # "Important update about project"
+    assert download_calls[1] == call(mock_messages[2])  # "Another important note"
+
+@pytest.mark.asyncio
+async def test_process_messages_with_no_matching_keywords(service, mock_db):
+    """Test processing messages when no messages match keywords."""
+    mock_message = MockTelegramMessage(
+        id=1,
+        text="Regular message",
+        media=Mock()
+    )
     
     # Setup mock fetcher
     mock_fetcher = AsyncMock()
@@ -140,14 +185,46 @@ async def test_process_messages_with_media(service, mock_db):
     mock_fetcher.fetch_messages = Mock(return_value=AsyncIterator([mock_message]))
     mock_fetcher.download_media = AsyncMock(return_value="media/test.jpg")
     
-    with patch('src.service.TelegramFetcher', return_value=mock_fetcher):
-        # Process message with media
-        await service.process_messages(download_media=True)
+    # First test with keywords
+    mock_fetcher_with_keywords = AsyncMock()
+    mock_fetcher_with_keywords.__aenter__.return_value = mock_fetcher_with_keywords
+    mock_fetcher_with_keywords.fetch_messages = Mock(return_value=AsyncIterator([mock_message]))
+    mock_fetcher_with_keywords.download_media = AsyncMock(return_value="media/test.jpg")
     
-    # Verify media download and database operations
-    mock_fetcher.download_media.assert_called_once_with(mock_message)
+    with patch('src.service.TelegramFetcher', return_value=mock_fetcher_with_keywords), \
+         patch('src.service.MediaFile') as mock_media_file:
+        # Process message with non-matching keyword
+        await service.process_messages(
+            download_media=True,
+            keywords=["important"]
+        )
+    
+    # Verify no media was downloaded since keyword didn't match
+    mock_fetcher_with_keywords.download_media.assert_not_called()
+    mock_media_file.assert_not_called()
     mock_db.merge.assert_called_once()
-    assert mock_db.merge.call_args[0][0].media_path == "media/test.jpg"
+    mock_db.commit.assert_called_once()
+    
+    # Reset mock_db call counts
+    mock_db.reset_mock()
+    mock_db.merge.reset_mock()
+    mock_db.commit.reset_mock()
+    
+    # Second test without keywords
+    mock_fetcher_no_keywords = AsyncMock()
+    mock_fetcher_no_keywords.__aenter__.return_value = mock_fetcher_no_keywords
+    mock_fetcher_no_keywords.fetch_messages = Mock(return_value=AsyncIterator([mock_message]))
+    mock_fetcher_no_keywords.download_media = AsyncMock(return_value="media/test.jpg")
+    
+    with patch('src.service.TelegramFetcher', return_value=mock_fetcher_no_keywords), \
+         patch('src.service.MediaFile') as mock_media_file:
+        # Process message without media download
+        await service.process_messages(download_media=False)
+    
+    # Verify no media was downloaded
+    mock_fetcher_no_keywords.download_media.assert_not_called()
+    mock_db.merge.assert_called_once()
+    mock_media_file.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_process_messages_error_handling(service, mock_db):
@@ -166,4 +243,39 @@ async def test_process_messages_error_handling(service, mock_db):
         await service.process_messages()
     
     # Verify error handling
-    mock_db.rollback.assert_called_once() 
+    mock_db.rollback.assert_called_once()
+
+def test_get_unnormalized_messages(service, mock_db):
+    """Test retrieving unnormalized messages without pagination."""
+    # Setup mock data
+    expected_messages = [
+        Message(message_id=1, text="Test 1", date=datetime.now(), is_normalized=False),
+        Message(message_id=2, text="Test 2", date=datetime.now(), is_normalized=False)
+    ]
+    mock_db.all.return_value = expected_messages
+    
+    # Test with default parameters
+    messages = service.get_unnormalized_messages()
+    assert messages == expected_messages
+    
+    # Verify query building
+    mock_db.query.assert_called_once_with(Message)
+    mock_db.filter.assert_called_once()
+    mock_db.all.assert_called_once()
+
+def test_get_unnormalized_messages_with_pagination(service, mock_db):
+    """Test retrieving unnormalized messages with pagination."""
+    # Setup mock data
+    expected_messages = [Message(message_id=3, text="Test 3", date=datetime.now(), is_normalized=False)]
+    mock_db.all.return_value = expected_messages
+    
+    # Test with pagination parameters
+    messages = service.get_unnormalized_messages(skip=10, limit=1)
+    assert messages == expected_messages
+    
+    # Verify query building
+    mock_db.query.assert_called_once_with(Message)
+    mock_db.filter.assert_called_once()
+    mock_db.offset.assert_called_once_with(10)
+    mock_db.limit.assert_called_once_with(1)
+    mock_db.all.assert_called_once()
