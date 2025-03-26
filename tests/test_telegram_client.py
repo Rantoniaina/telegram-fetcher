@@ -117,9 +117,14 @@ async def test_download_media_with_rate_limit(telegram_client, mock_telethon_cli
     mock_message.media = Mock()
     mock_message.id = 123
     
+    # Create a test file to simulate partial download
+    test_file = telegram_client.media_path / str(mock_message.id)
+    test_file.touch()
+    
     # Simulate rate limit on first attempt, then success
     flood_error = FloodWaitError(2)  # 2 seconds wait
-    mock_message.download_media = AsyncMock(side_effect=[flood_error, "downloaded_file.jpg"])
+    expected_path = telegram_client.media_path / str(mock_message.id)
+    mock_message.download_media = AsyncMock(side_effect=[flood_error, str(expected_path)])
     
     # Download media
     async with telegram_client:
@@ -128,15 +133,20 @@ async def test_download_media_with_rate_limit(telegram_client, mock_telethon_cli
     # Verify
     assert result is not None
     assert mock_message.download_media.call_count == 2
+    assert Path(result) == expected_path  # Verify correct path returned
 
 @pytest.mark.asyncio
 async def test_download_media_error(telegram_client, mock_telethon_client):
-    """Test handling general errors during media download."""
+    """Test handling general errors during media download and file cleanup."""
     # Setup mock
     mock_message = AsyncMock()
     mock_message.media = Mock()
     mock_message.id = 123
     mock_message.download_media = AsyncMock(side_effect=Exception("Download failed"))
+    
+    # Create a test file to simulate partial download
+    test_file = telegram_client.media_path / str(mock_message.id)
+    test_file.touch()
     
     # Download media
     async with telegram_client:
@@ -145,6 +155,7 @@ async def test_download_media_error(telegram_client, mock_telethon_client):
     # Verify
     assert result is None
     mock_message.download_media.assert_called_once()
+    assert not test_file.exists()  # Verify cleanup occurred
 
 @pytest.mark.asyncio
 async def test_download_media_no_media(telegram_client, mock_telethon_client):
