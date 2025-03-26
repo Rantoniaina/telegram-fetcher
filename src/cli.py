@@ -15,6 +15,7 @@ from .service import MessageService
 from .config import settings
 from .cleanup import CleanupService
 from .normalization import NormalizationService
+from .filter import FilterService
 
 app = typer.Typer()
 console = Console()
@@ -263,6 +264,48 @@ def stop(
         
     except FileNotFoundError:
         console.print("[yellow]Docker Compose not found. Make sure Docker is installed.[/yellow]")
+    except Exception as e:
+        console.print(f"[bold red]Error: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def filter(
+    keywords: str = typer.Option(..., help="Comma-separated keywords to filter messages"),
+    batch_size: int = typer.Option(100, help="Number of messages to process in each batch"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed progress")
+):
+    """Filter normalized messages based on keywords."""
+    try:
+        # Validate keywords
+        if not keywords or not keywords.strip():
+            console.print("[bold red]Error: Keywords cannot be empty. Please provide at least one keyword.[/bold red]")
+            raise typer.Exit(1)
+        db = next(get_db())
+        service = FilterService(db)
+        
+        console.print("[bold green]Starting message filtering...[/bold green]")
+        
+        # Process keywords
+        keyword_list = [k.strip() for k in keywords.split(",")]
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            disable=not verbose
+        ) as progress:
+            task = progress.add_task("Filtering messages...", total=None)
+            filtered_count = service.filter_messages(
+                keywords=keyword_list,
+                batch_size=batch_size
+            )
+            if verbose:
+                progress.update(task, completed=filtered_count, total=filtered_count)
+        
+        console.print(f"[bold green]Filtering completed! {filtered_count} messages filtered.[/bold green]")
+        
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         raise typer.Exit(1)
