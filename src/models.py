@@ -17,12 +17,30 @@ class Message(Base):
     chat_id = Column(Integer, nullable=False)
     sender_id = Column(Integer)
     text = Column(String)
-    media_path = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_normalized = Column(Boolean, default=False, nullable=False)
 
+    # Relationship to media files
+    media_files = relationship("MediaFile", back_populates="message")
+
     def __repr__(self):
         return f"<Message(id={self.id}, message_id={self.message_id})>"
+
+
+class MediaFile(Base):
+    __tablename__ = "media_files"
+
+    id = Column(Integer, primary_key=True)
+    message_id = Column(Integer, ForeignKey('messages.id'), nullable=False)
+    file_path = Column(String, nullable=False)
+    file_type = Column(String)  # To store the type of media (photo, video, document, etc.)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship to message
+    message = relationship("Message", back_populates="media_files")
+
+    def __repr__(self):
+        return f"<MediaFile(id={self.id}, message_id={self.message_id}, file_type={self.file_type})>"
 
 
 class NormalizedMessage(Base):

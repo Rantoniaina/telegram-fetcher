@@ -10,6 +10,7 @@ A powerful Python application for fetching and storing messages from Telegram ch
 ## ✨ Features
 
 - 📥 Fetch messages from Telegram channels
+- 🔍 Filter messages by keywords
 - 🖼️ Download and store media files
 - 💾 Store messages in SQLite database
 - 🖥️ CLI interface with rich formatting
@@ -84,6 +85,7 @@ Options:
 
 - `--limit INTEGER`: Limit the number of messages to fetch
 - `--no-media`: Skip downloading media files
+- `--keywords LIST`: Filter messages by keywords (comma-separated)
 - `--verbose`: Enable verbose logging
 
 ### 📋 List Messages
