@@ -83,6 +83,7 @@ def test_fetch_command(runner, mock_service, mock_db):
         limit=None,
         download_media=True,  # no_media is False by default
         keywords=None,  # no keywords by default
+        date=None,  # date filter is None by default
         progress_callback=ANY  # Use ANY to match any callback function
     )
 
@@ -110,6 +111,30 @@ def test_fetch_command_with_options(runner, mock_service, mock_db):
         limit=10,
         download_media=False,  # no_media is True
         keywords=["important", "update"],
+        date=None,  # date filter is None by default
+        progress_callback=ANY
+    )
+
+def test_fetch_command_with_date_filter(runner, mock_service, mock_db):
+    """Test fetch command with date filter."""
+    async def mock_process_messages(*args, **kwargs):
+        return None
+
+    mock_service.process_messages.side_effect = mock_process_messages
+    test_date = "01-01-2024"
+
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.MessageService', return_value=mock_service), \
+         patch('src.cli.init_db'), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["fetch", "--date", test_date])
+    
+    assert result.exit_code == 0
+    mock_service.process_messages.assert_called_once_with(
+        limit=None,
+        download_media=True,
+        keywords=None,
+        date=test_date,
         progress_callback=ANY
     )
 

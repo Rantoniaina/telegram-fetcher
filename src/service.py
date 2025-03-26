@@ -17,6 +17,7 @@ class MessageService:
         limit: Optional[int] = None,
         download_media: bool = True,
         keywords: Optional[list[str]] = None,
+        date: Optional[str] = None,
         progress_callback: Optional[Callable[[TelegramMessage, int, int], None]] = None
     ):
         """
@@ -25,14 +26,29 @@ class MessageService:
         Args:
             limit: Maximum number of messages to fetch
             download_media: Whether to download media files
+            keywords: Optional list of keywords to filter messages
+            date: Optional date string in format dd-MM-yyyy to filter messages
             progress_callback: Optional callback function to report progress
         """
         message_count = 0
         total_messages = 0
         
+        # Parse date string if provided
+        target_date = None
+        if date:
+            try:
+                target_date = datetime.strptime(date, "%d-%m-%Y").date()
+            except ValueError as e:
+                logger.error(f"Invalid date format: {e}. Expected format: dd-MM-yyyy")
+                return
+        
         async with TelegramFetcher() as fetcher:
             async for telegram_msg in fetcher.fetch_messages(limit):
                 try:
+                    # Skip messages not from target date if date filter is active
+                    if target_date and telegram_msg.date.date() != target_date:
+                        continue
+                        
                     message_count += 1
                     if total_messages == 0:
                         # Get total on first message

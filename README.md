@@ -86,6 +86,8 @@ Options:
 - `--limit INTEGER`: Limit the number of messages to fetch
 - `--no-media`: Skip downloading media files
 - `--keywords LIST`: Filter messages by keywords (comma-separated)
+- `--date STRING`: Filter messages by date (format: dd-MM-yyyy)
+  > ⚠️ Note: Currently, the date filter fetches all messages first and then filters them locally. This means the initial fetch may take longer than expected as it doesn't utilize Telegram's API date filtering.
 - `--verbose`: Enable verbose logging
 
 ### 📋 List Messages
