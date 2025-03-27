@@ -117,6 +117,19 @@ Options:
 - `--skip-empty`: Skip messages with empty text content
 - `--verbose`: Show detailed progress for each message
 
+### 🔍 Filter Messages
+
+To filter normalized messages based on keywords:
+
+```bash
+python -m src.cli filter --keywords "keyword1,keyword2"
+```
+
+Options:
+
+- `--keywords`: Comma-separated list of keywords to filter messages (required)
+- `--batch-size`: Number of messages to process in each batch (default: 100)
+
 ### 🧹 Cleanup
 
 To clean up stored messages and media files:

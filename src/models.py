@@ -59,6 +59,22 @@ class NormalizedMessage(Base):
         return f"<NormalizedMessage(id={self.id}, original_message_id={self.original_message_id})>"
 
 
+class FilteredMessage(Base):
+    __tablename__ = "filtered_messages"
+
+    id = Column(Integer, primary_key=True)
+    original_message_id = Column(Integer, ForeignKey('messages.id'), nullable=False)
+    normalized_text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship to original message
+    original_message = relationship("Message", backref="filtered_version")
+
+    def __repr__(self):
+        return f"<FilteredMessage(id={self.id}, original_message_id={self.original_message_id})>"
+
+
 # Database setup
 engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

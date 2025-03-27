@@ -115,6 +115,66 @@ def test_fetch_command_with_options(runner, mock_service, mock_db):
         progress_callback=ANY
     )
 
+@pytest.fixture
+def mock_filter_service():
+    """Mock FilterService fixture."""
+    service = Mock()
+    service.filter_messages = Mock()
+    return service
+
+def test_filter_command(runner, mock_filter_service, mock_db):
+    """Test the filter command."""
+    mock_filter_service.filter_messages.return_value = 2
+    
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.FilterService', return_value=mock_filter_service), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["filter", "--keywords", "test,example"])
+    
+    assert result.exit_code == 0
+    mock_filter_service.filter_messages.assert_called_once_with(
+        keywords=["test", "example"],
+        batch_size=100  # default batch size
+    )
+    assert "2 messages filtered" in result.stdout
+
+def test_filter_command_with_batch_size(runner, mock_filter_service, mock_db):
+    """Test the filter command with custom batch size."""
+    mock_filter_service.filter_messages.return_value = 5
+    
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.FilterService', return_value=mock_filter_service), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["filter", "--keywords", "test", "--batch-size", "50"])
+    
+    assert result.exit_code == 0
+    mock_filter_service.filter_messages.assert_called_once_with(
+        keywords=["test"],
+        batch_size=50
+    )
+
+def test_filter_command_empty_keywords(runner, mock_filter_service, mock_db):
+    """Test the filter command with empty keywords."""
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.FilterService', return_value=mock_filter_service):
+        result = runner.invoke(app, ["filter", "--keywords", ""])
+    
+    assert result.exit_code == 1
+    assert "Keywords cannot be empty" in result.stdout
+    mock_filter_service.filter_messages.assert_not_called()
+
+def test_filter_command_error_handling(runner, mock_filter_service, mock_db):
+    """Test error handling in filter command."""
+    mock_filter_service.filter_messages.side_effect = Exception("Database error")
+    
+    with patch('src.cli.get_db', return_value=iter([mock_db])), \
+         patch('src.cli.FilterService', return_value=mock_filter_service), \
+         patch('src.cli.Progress'):
+        result = runner.invoke(app, ["filter", "--keywords", "test"])
+    
+    assert result.exit_code == 1
+    assert "Error" in result.stdout
+
 def test_fetch_command_with_date_filter(runner, mock_service, mock_db):
     """Test fetch command with date filter."""
     async def mock_process_messages(*args, **kwargs):
