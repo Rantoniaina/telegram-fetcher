@@ -3,7 +3,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
+from rich.markdown import Markdown
 from loguru import logger
 import sys
 import subprocess
@@ -310,6 +311,47 @@ def filter(
         console.print(f"[bold red]Error: {e}[/bold red]")
         raise typer.Exit(1)
 
+
+@app.command()
+def chat(
+    model: str = typer.Option(None, help="The Ollama model to use (overrides OLLAMA_MODEL env var)"),
+    base_url: str = typer.Option(None, help="Ollama API base URL (overrides OLLAMA_BASE_URL env var)")
+):
+    """Start an interactive chat session with Ollama LLaVa model."""
+    try:
+        from .ollama_chat import OllamaClient
+        client = OllamaClient(base_url)
+        
+        # Check if Ollama service is available
+        if not client.check_health():
+            console.print("[bold red]Error: Ollama service is not available. Please make sure it's running.[/bold red]")
+            raise typer.Exit(1)
+        
+        console.print("[bold green]Starting chat with Ollama LLaVa...[/bold green]")
+        console.print("Type 'exit' or press Ctrl+C to end the chat.\n")
+        
+        while True:
+            try:
+                user_input = Prompt.ask("[bold blue]You[/bold blue]")
+                if user_input.lower() == "exit":
+                    break
+                
+                console.print("[bold yellow]Assistant[/bold yellow]")
+                response = client.chat(user_input, model)
+                console.print(Markdown(response))
+                console.print()
+                
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                console.print(f"[bold red]Error: {str(e)}[/bold red]")
+                break
+        
+        console.print("\n[bold green]Chat session ended. Goodbye![/bold green]")
+        
+    except ImportError as e:
+        console.print("[bold red]Error: Could not import Ollama client. Please check your installation.[/bold red]")
+        raise typer.Exit(1)
 
 if __name__ == "__main__":
     app()

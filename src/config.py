@@ -17,9 +17,15 @@ class Settings(BaseSettings):
     # Session name for Telegram client
     SESSION_NAME: str = "telegram_fetcher"
     
+    # Ollama settings
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llava"
+    OLLAMA_MAX_TOKENS: int = 2048
+    OLLAMA_TEMPERATURE: float = 0.8
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
 
 
-settings = Settings() 
+settings = Settings()

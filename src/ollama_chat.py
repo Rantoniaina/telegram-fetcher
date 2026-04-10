@@ -1,19 +1,34 @@
 import typer
 import httpx
+import os
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.markdown import Markdown
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = typer.Typer()
 console = Console()
 
 class OllamaClient:
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.client = httpx.Client(timeout=30.0)
     
-    def chat(self, prompt: str, model: str = "llava") -> str:
+    def check_health(self) -> bool:
+        """Check if Ollama service is available."""
+        try:
+            response = self.client.get(f"{self.base_url}/api/version")
+            response.raise_for_status()
+            return True
+        except Exception:
+            return False
+    
+    def chat(self, prompt: str, model: str = None) -> str:
+        model = model or os.getenv("OLLAMA_MODEL", "llava")
         try:
             response = self.client.post(
                 f"{self.base_url}/api/generate",
@@ -26,14 +41,19 @@ class OllamaClient:
 
 @app.command()
 def chat(
-    model: str = typer.Option("llava", help="The Ollama model to use"),
-    base_url: str = typer.Option("http://localhost:11434", help="Ollama API base URL")
+    model: str = typer.Option(None, help="The Ollama model to use (overrides OLLAMA_MODEL env var)"),
+    base_url: str = typer.Option(None, help="Ollama API base URL (overrides OLLAMA_BASE_URL env var)")
 ):
     """Start an interactive chat session with Ollama LLaVa model."""
+    client = OllamaClient(base_url)
+    
+    # Check if Ollama service is available
+    if not client.check_health():
+        console.print("[bold red]Error: Ollama service is not available. Please make sure it's running.[/bold red]")
+        raise typer.Exit(1)
+    
     console.print("[bold green]Starting chat with Ollama LLaVa...[/bold green]")
     console.print("Type 'exit' or press Ctrl+C to end the chat.\n")
-    
-    client = OllamaClient(base_url)
     
     while True:
         try:
